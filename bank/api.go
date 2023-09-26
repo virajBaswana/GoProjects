@@ -44,6 +44,7 @@ func (s *ApiServer) Run() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/account", makeHTTPHandleFunc(s.handleAccount))
+	router.HandleFunc("/account/{id}", makeHTTPHandleFunc(s.handleGetAccountbyId))
 	router.HandleFunc("/transfer", makeHTTPHandleFunc(s.handleTransfer))
 
 	log.Println("JSON API server running on port: ", s.listenAddr)
@@ -64,7 +65,16 @@ func (s *ApiServer) handleAccount(w http.ResponseWriter, r *http.Request) error 
 	}
 	return fmt.Errorf("method not supported : %s", r.Method)
 }
+
 func (s *ApiServer) handleGetAccount(w http.ResponseWriter, r *http.Request) error {
+	res, err := s.store.GetAccounts()
+	if err != nil {
+		return err
+	}
+	return WriteJSON(w, http.StatusOK, res)
+}
+
+func (s *ApiServer) handleGetAccountbyId(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	// account := NewAccount("john", "doe")
 	fmt.Println(id)
