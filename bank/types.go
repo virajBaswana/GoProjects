@@ -1,20 +1,30 @@
 package main
 
-import "math/rand"
+import (
+	"math/rand"
+	"time"
+)
 
 type Account struct {
-	ID        int    `json:"id"`
+	ID        int       `json:"id"`
+	FirstName string    `json:"firstName"`
+	LastName  string    `json:"lastName"`
+	Number    int64     `json:"number"`
+	Balance   int64     `json:"balance"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+type CreateAccountRequest struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
-	Number    int64  `json:"number"`
-	Balance   int64  `json:"balance"`
 }
 
 func NewAccount(firstName, lastName string) *Account {
 	return &Account{
 		FirstName: firstName,
 		LastName:  lastName,
-		ID:        rand.Intn(100000),
-		Number:    rand.Int63n(100000000),
+
+		Number:    int64(rand.Intn(100000000)),
+		CreatedAt: time.Now().UTC(),
 	}
 }
