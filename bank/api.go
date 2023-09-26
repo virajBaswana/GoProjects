@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -15,7 +16,7 @@ type ApiServer struct {
 }
 
 type ApiError struct {
-	Error string
+	Error string `json:"error"`
 }
 
 type ApiFunc func(http.ResponseWriter, *http.Request) error
@@ -75,10 +76,23 @@ func (s *ApiServer) handleGetAccount(w http.ResponseWriter, r *http.Request) err
 }
 
 func (s *ApiServer) handleGetAccountbyId(w http.ResponseWriter, r *http.Request) error {
-	id := mux.Vars(r)["id"]
-	// account := NewAccount("john", "doe")
-	fmt.Println(id)
-	return WriteJSON(w, http.StatusOK, &Account{})
+	if r.Method == "GET" {
+		id, err := getId(r)
+		if err != nil {
+			return err
+		}
+
+		account, err := s.store.GetAccountById(id)
+		if err != nil {
+			return err
+		}
+		return WriteJSON(w, http.StatusOK, account)
+
+	}
+	if r.Method == "DELETE" {
+		return s.handleDeleteAccount(w, r)
+	}
+	return fmt.Errorf("method not allowed %s", r.Method)
 
 }
 func (s *ApiServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) error {
@@ -94,8 +108,33 @@ func (s *ApiServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) 
 
 }
 func (s *ApiServer) handleDeleteAccount(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	id, err := getId(r)
+	if err != nil {
+		return err
+	}
+
+	if err := s.store.DeleteAccount(id); err != nil {
+		return err
+	}
+	return WriteJSON(w, http.StatusOK, map[string]int{"Account deleted": id})
 }
 func (s *ApiServer) handleTransfer(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	transferRequest := Transfer{}
+	// if err := json.NewDecoder(r.Body).Decode(transferRequest) ; err := nil {
+	// 	return err
+	// }
+	defer r.Body.Close()
+
+	return WriteJSON(w, http.StatusOK, transferRequest)
+
+}
+
+func getId(r *http.Request) (int, error) {
+	idString := mux.Vars(r)["id"]
+	id, err := strconv.Atoi(idString)
+	if err != nil {
+		return id, fmt.Errorf("string conversion error %s", err)
+	}
+	return id, nil
+
 }
