@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 )
 
@@ -41,11 +43,38 @@ func NewApiServer(listenAddr string, store Storage) *ApiServer {
 		store:      store,
 	}
 }
+
+func withJwtAuth(handlerFunc http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Calling jwt auth middleware")
+		tokenString := r.Header.Get("x-jwt-token")
+		validate, err := validateJwt(tokenString)
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, ApiError{Error: "Invalid jwt"})
+		}
+		handlerFunc(w, r)
+	}
+}
+
+func validateJwt(tokenString string) (*jwt.Token, error) {
+	secret := os.Getenv("JWT_SECRET")
+	return jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+
+		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
+		return []byte(secret), nil
+	})
+
+}
+
 func (s *ApiServer) Run() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/account", makeHTTPHandleFunc(s.handleAccount))
-	router.HandleFunc("/account/{id}", makeHTTPHandleFunc(s.handleGetAccountbyId))
+	router.HandleFunc("/account/{id}", withJwtAuth(makeHTTPHandleFunc(s.handleGetAccountbyId)))
 	router.HandleFunc("/transfer", makeHTTPHandleFunc(s.handleTransfer))
 
 	log.Println("JSON API server running on port: ", s.listenAddr)
@@ -120,9 +149,9 @@ func (s *ApiServer) handleDeleteAccount(w http.ResponseWriter, r *http.Request) 
 }
 func (s *ApiServer) handleTransfer(w http.ResponseWriter, r *http.Request) error {
 	transferRequest := Transfer{}
-	// if err := json.NewDecoder(r.Body).Decode(transferRequest) ; err := nil {
-	// 	return err
-	// }
+	if err := json.NewDecoder(r.Body).Decode(&transferRequest); err != nil {
+		return err
+	}
 	defer r.Body.Close()
 
 	return WriteJSON(w, http.StatusOK, transferRequest)
